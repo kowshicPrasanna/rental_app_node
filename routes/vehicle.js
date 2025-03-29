@@ -1,6 +1,8 @@
 var express = require("express");
 var router = express.Router();
 const multer = require("multer");
+const cloudinary = require("cloudinary").v2;
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const path = require("path");
 const { Vehicle } = require("../models/vehicle");
 const { Booking } = require("../models/booking");
@@ -48,13 +50,19 @@ router.delete("/delete", async (req, res) => {
   }
 });
 
-// Configure Multer for image storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/"); // Images stored in "uploads" folder
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname)); // Unique filename
+// Configure Cloudinary using environment variables
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+const storage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: "vehicle_images",
+    format: async (req, file) => "png",
+    public_id: (req, file) => Date.now() + "-" + file.originalname,
   },
 });
 
@@ -65,7 +73,7 @@ router.post("/add", upload.single("vehicleImage"), async function (req, res) {
     console.log("Starting to save vehicle data...");
 
     const { modelName, modelYear, vehicleType, vehicleNumber, location, email, price } = req.body;
-    const vehicleImage = req.file ? req.file.filename : null; // Store image filename
+    const vehicleImage = req.file ? req.file.path : null;
 
     const vehicle = new Vehicle({
       modelName,
